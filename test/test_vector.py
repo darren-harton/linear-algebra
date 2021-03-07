@@ -53,8 +53,8 @@ class TestVector(unittest.TestCase):
         ]
 
         for v, w, (parallel, orthogonal) in zip(vs, ws, answers):
-            assert v.is_parallel(w) == parallel
-            assert v.is_orthogonal(w) == orthogonal
+            assert v.is_parallel_to(w) == parallel
+            assert v.is_orthogonal_to(w) == orthogonal
 
     def test_projection_orthogonal(self):
         # TODO: get answers

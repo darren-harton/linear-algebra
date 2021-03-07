@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
-import numpy as np
 from typing import Type, Sequence, Iterable, Optional, Union
 import typing
 
 import math
+from decimal import Decimal
+
+
+Numeric = Union[float, int, Decimal]
+
 
 def radToDeg(r):
     return r * 180/math.pi
@@ -14,7 +18,7 @@ def degToRad(d):
 
 class Vector(object):
     def __init__(self, coords):
-        self.coords = tuple(float(x) for x in coords)
+        self.coords = tuple(coords)
         self.dims = len(coords)
 
     def __getitem__(self, item):
@@ -36,22 +40,23 @@ class Vector(object):
 
     def __mul__(self, other):
         if isinstance(other, type(self)):
-            return Vector([x * y for x, y in zip(self.coords, other.coords)])
-        elif isinstance(other, (float, int)):
+            # return Vector([x * y for x, y in zip(self.coords, other.coords)])
+            raise NotImplemented()
+        elif isinstance(other, typing.get_args(Numeric)):
             return Vector([x * other for x in self.coords])
         else:
             raise NotImplemented()
     __rmul__ = __mul__
 
-    def __truediv__(self, scalar: float):
+    def __truediv__(self, scalar: Decimal):
         return Vector([x / scalar for x in self.coords])
 
     def __matmul__(self, other: 'Vector'):
         """dot product"""
         return sum(x * y for x, y in zip(self.coords, other.coords))
 
-    def magnitude(self) -> float:
-        return sum(x ** 2 for x in self.coords) ** 0.5
+    def magnitude(self) -> Numeric:
+        return sum(x ** Decimal('2') for x in self.coords) ** Decimal('.5')
 
     def normalize(self) -> 'Vector':
         # AKA direction, or unit vector
@@ -60,7 +65,7 @@ class Vector(object):
             return self * 0
         return self * (1 / mag)
 
-    def angle(self, other: 'Vector', tolerance=1e-10) -> Optional[float]:
+    def angle(self, other: 'Vector', tolerance=1e-10) -> Optional[Numeric]:
         if self.is_zero() or other.is_zero():
             return None
 
@@ -71,18 +76,18 @@ class Vector(object):
 
         return math.acos(dot)
 
-    def is_orthogonal(self, other: 'Vector', tolerance=1e-10):
+    def is_orthogonal_to(self, other: 'Vector', tolerance=1e-10):
         return abs(self @ other) < tolerance
 
     def is_zero(self, tolerance=1e-10):
         return self.magnitude() < tolerance
 
-    def is_parallel(self, other: 'Vector', tolerance=1e-10):
+    def is_parallel_to(self, other: 'Vector', tolerance=1e-10):
         if self.is_zero() or other.is_zero():
             return True
 
         angle = abs(self.angle(other))
-        return  angle < tolerance or abs(angle - math.pi) < tolerance
+        return angle < tolerance or abs(angle - math.pi) < tolerance
 
     def component_parallel_to(self, other: 'Vector') -> 'Vector':
         """Returns self, projected onto the basis vector"""
@@ -102,7 +107,7 @@ class Vector(object):
         ])
 
     def area_of_parallelogram(self, other: 'Vector'):
-        return (self.cross(other)).magnitude()
+        return self.cross(other).magnitude()
 
     def area_of_triangle(self, other: 'Vector'):
         return self.area_of_parallelogram(other) / 2
@@ -158,8 +163,8 @@ if __name__ == '__main__':
     ]
 
     for v,w,(parallel, orthogonal) in zip(vs, ws, answers):
-        assert v.is_parallel(w) == parallel
-        assert v.is_orthogonal(w) == orthogonal
+        assert v.is_parallel_to(w) == parallel
+        assert v.is_orthogonal_to(w) == orthogonal
 
     print("pass")
 

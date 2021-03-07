@@ -1,26 +1,32 @@
-from decimal import Decimal, getcontext
+from decimal import getcontext, Decimal as _Decimal
+getcontext().prec = 30
 
 from vector import Vector
 
-getcontext().prec = 30
 
+class Decimal(_Decimal):
+    def is_near_zero(self, eps=1e-10):
+        return abs(self) < eps
 
-class Line(object):
-
+class Line:
     NO_NONZERO_ELTS_FOUND_MSG = 'No nonzero elements found'
 
     def __init__(self, normal_vector=None, constant_term=None):
-        self.dimension = 2
+        # Only 2D is supported for now
+        self.dims = 2
 
-        if not normal_vector:
-            all_zeros = ['0']*self.dimension
-            normal_vector = Vector(all_zeros)
+        if normal_vector is None:
+            zeros = [Decimal('0') for _ in range(self.dims)]
+            normal_vector = Vector(zeros)
+        if not isinstance(normal_vector, Vector):
+            normal_vector = Vector([Decimal(x) for x in normal_vector])
         self.normal_vector = normal_vector
 
-        if not constant_term:
+        if constant_term is None:
             constant_term = Decimal('0')
         self.constant_term = Decimal(constant_term)
 
+        self.basepoint = None
         self.set_basepoint()
 
 
@@ -28,12 +34,12 @@ class Line(object):
         try:
             n = self.normal_vector
             c = self.constant_term
-            basepoint_coords = ['0']*self.dimension
+            basepoint_coords = [Decimal('0') for _ in range(self.dims)]
 
             initial_index = Line.first_nonzero_index(n)
             initial_coefficient = n[initial_index]
 
-            basepoint_coords[initial_index] = c/initial_coefficient
+            basepoint_coords[initial_index] = c / initial_coefficient
             self.basepoint = Vector(basepoint_coords)
 
         except Exception as e:
@@ -43,7 +49,49 @@ class Line(object):
                 raise e
 
 
-    def __str__(self):
+    def is_parallel_to(self, other: 'Line', tolerance=1e-10):
+        return self.normal_vector.is_parallel_to(other.normal_vector, tolerance=tolerance)
+
+
+    def __eq__(self, other: 'Line'):
+        # Equal or equivalent
+
+        if self.normal_vector.is_zero():
+            if not other.normal_vector.is_zero():
+                return False
+            diff = self.constant_term - other.constant_term
+            return diff.is_near_zero()
+
+        if other.normal_vector.is_zero():
+            return False
+
+        if not self.is_parallel_to(other):
+            return False
+
+        # If the vector connecting the basepoints is orthogonal to the line's normal vector,
+        #  they must be the same line
+        base_vect = Vector([a-b for a,b in zip(self.basepoint, other.basepoint)])
+        return self.normal_vector.is_orthogonal_to(base_vect)
+
+
+    def intersection_with(self, other: 'Line'):
+        if self == other:
+            # All points intersect
+            return self
+
+        if self.is_parallel_to(other):
+            return None
+
+        (A,B),k1 = self.normal_vector.coords, self.constant_term
+        (C,D),k2 = other.normal_vector.coords, other.constant_term
+
+        denom = A*D - B*C
+        x = ( D*k1 - B*k2)/denom
+        y = (-C*k1 + A*k2)/denom
+        return x,y
+
+
+    def __repr__(self):
 
         num_decimal_places = 3
 
@@ -72,7 +120,7 @@ class Line(object):
         try:
             initial_index = Line.first_nonzero_index(n)
             terms = [write_coefficient(n[i], is_initial_term=(i==initial_index)) + 'x_{}'.format(i+1)
-                     for i in range(self.dimension) if round(n[i], num_decimal_places) != 0]
+                     for i in range(self.dims) if round(n[i], num_decimal_places) != 0]
             output = ' '.join(terms)
 
         except Exception as e:
@@ -92,11 +140,6 @@ class Line(object):
     @staticmethod
     def first_nonzero_index(iterable):
         for k, item in enumerate(iterable):
-            if not MyDecimal(item).is_near_zero():
+            if not Decimal(item).is_near_zero():
                 return k
         raise Exception(Line.NO_NONZERO_ELTS_FOUND_MSG)
-
-
-class MyDecimal(Decimal):
-    def is_near_zero(self, eps=1e-10):
-        return abs(self) < eps
